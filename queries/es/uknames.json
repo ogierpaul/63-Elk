@@ -1,0 +1,87 @@
+{
+      "settings": {
+          "number_of_shards": 1,
+          "number_of_replicas": 1
+      },
+      "mappings": {
+          "properties": {
+              "row_id": {
+                  "type": "integer"
+              },
+              "surname": {
+                  "type": "text",
+                  "boost": 3
+              },
+              "firstnames": {
+                  "type": "text",
+                  "boost": 3
+              },
+              "title": {
+                  "type": "keyword"
+              },
+              "day": {
+                  "type": "integer"
+              },
+              "month": {
+                  "type": "integer"
+              },
+              "year": {
+                  "type": "integer"
+              },
+              "name": {
+                  "type": "text"
+              },
+              "country_of_residence": {
+                  "type": "keyword"
+              },
+              "nationality": {
+                  "type": "keyword"
+              },
+              "formattedaddress": {
+                  "type": "text", "boost": 1
+              },
+              "streetnumber": {
+                  "type": "text", "boost": 2
+              },
+              "route": {
+                  "type": "text"
+              },
+              "locality": {
+                  "type": "text"
+              },
+              "administrationarealevel2": {
+                  "type": "text"
+              },
+              "administrationarealevel1": {
+                  "type": "text"
+              },
+              "postalcodelong": {
+                  "type": "text"
+              },
+              "country": {
+                  "type": "text"
+              },
+              "longitude": {
+                  "type": "float"
+              },
+              "latitude": {
+                  "type": "float"
+              },
+              "email": {
+                  "type": "text", "boost": 3
+              },
+              "ni_number": {
+                  "type": "keyword"
+              },
+              "phone": {
+                  "type": "text"
+              },
+              "phone_type": {
+                  "type": "text"
+              },
+              "phone_country": {
+                  "type": "text"
+              }
+          }
+      }
+  }

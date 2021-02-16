@@ -24,8 +24,6 @@ services:
       # Use single node discovery in order to disable production mode and avoid bootstrap checks.
       # see: https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
       discovery.type: single-node
-    networks:
-      - elk
 
   logstash:
     container_name: logstash
@@ -39,18 +37,26 @@ services:
         target: /usr/share/logstash/config/logstash.yml
         read_only: true
       - type: bind
+        source: ./logstash/config/pipelines.yml
+        target: /usr/share/logstash/config/pipelines.yml
+        read_only: true
+      - type: bind
         source: ./logstash/pipeline
         target: /usr/share/logstash/pipeline
         read_only: true
+      - type: bind
+        source: ./logstash/drivers
+        target: /drivers
+        read_only: true
+
+      - ./shared_volume:/shared_volume
     ports:
       - "5044:5044"
       - "5000:5000/tcp"
       - "5000:5000/udp"
       - "9600:9600"
     environment:
-      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
-    networks:
-      - elk
+      LS_JAVA_OPTS: "-Xmx20968m -Xms2096m"
     depends_on:
       - elasticsearch
 
@@ -67,28 +73,22 @@ services:
         read_only: true
     ports:
       - "5601:5601"
-    networks:
-      - elk
     depends_on:
       - elasticsearch
 
   postgres:
-    # Use the official image from PostgreSQL
+    # Use the official image from PostgreSQL & PostGIS
     container_name: postgres
-    image: postgres:11.10
+    image: postgis/postgis:11-2.5
     environment:
       POSTGRES_USER: myuser
       POSTGRES_PASSWORD: mypassword
       POSTGRES_DB: mydb
     ports:
-      - "5432:5432"
+      - "5439:5432"
     volumes:
       - postgres:/var/lib/postgresql/data
       - ./shared_volume:/shared_volume
-
-networks:
-  elk:
-    driver: bridge
 
 volumes:
   elasticsearch:
