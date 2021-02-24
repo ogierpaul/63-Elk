@@ -79,16 +79,19 @@ services:
   postgres:
     # Use the official image from PostgreSQL & PostGIS
     container_name: postgres
-    image: postgis/postgis:11-2.5
+    build:
+      context: ./postgres
     environment:
       POSTGRES_USER: myuser
       POSTGRES_PASSWORD: mypassword
       POSTGRES_DB: mydb
     ports:
-      - "5439:5432"
+      - "5432:5432"
     volumes:
       - postgres:/var/lib/postgresql/data
       - ./shared_volume:/shared_volume
+      - ./postgres/multicorn_fdw_for_es:/multicorn_fdw_for_es
+
 
 volumes:
   elasticsearch:

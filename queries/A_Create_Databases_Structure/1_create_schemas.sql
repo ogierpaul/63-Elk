@@ -1,0 +1,16 @@
+CREATE SCHEMA IF NOT EXISTS target;
+COMMENT ON SCHEMA target IS 'Target (reference) attributes';
+CREATE SCHEMA IF NOT EXISTS source;
+COMMENT ON SCHEMA target IS 'Source (new) attributes';
+CREATE SCHEMA IF NOT EXISTS elasticqueries;
+COMMENT ON SCHEMA target IS 'Contains steps to build the ElasticSearch Query';
+CREATE SCHEMA IF NOT EXISTS elasticresults;
+COMMENT ON SCHEMA target IS 'Contains steps to parse the ElasticSearch Results';
+CREATE SCHEMA IF NOT EXISTS exploration;
+COMMENT ON SCHEMA target IS 'Labellisation steps: Clustering, Y_True';
+CREATE SCHEMA IF NOT EXISTS sbs;
+COMMENT ON SCHEMA target IS 'Side-by-side scores';
+CREATE SCHEMA IF NOT EXISTS mlm;
+COMMENT ON SCHEMA target IS 'Machine-Learning Model data: Y-pred, views';
+CREATE SCHEMA IF NOT EXISTS talend;
+COMMENT ON SCHEMA talend IS 'Connection to Talend tools: Data Stewardship, tMatchGroup...';
