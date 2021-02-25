@@ -9,7 +9,7 @@ from elasticsearch import Elasticsearch
 
 from multicorn import ForeignDataWrapper
 from multicorn.utils import log_to_postgres as log2pg
-import time
+
 
 class SuricateFDW(ForeignDataWrapper):
     """ Elastic Search Foreign Data Wrapper """
@@ -31,7 +31,7 @@ class SuricateFDW(ForeignDataWrapper):
         self.index = options.pop("index", "")
         self.query_column = options.pop("query_column", None)
         self.response_column = options.pop("response_column", None)
-        ## self.pg_id_column = options.pop("pg_id_column", None)
+        self.pg_id_column = options.pop("pg_id_column", None)
         self.size = int(options.pop("size", 10))
         self.explain = (
             options.pop("explain", "false").lower() == "true"
@@ -39,11 +39,6 @@ class SuricateFDW(ForeignDataWrapper):
         self._rowid_column = options.pop("rowid_column", "id")
         username = options.pop("username", None)
         password = options.pop("password", None)
-
-        #TODO: Remove
-        self._counter_search = 0
-        self._counter_count = 0
-
         # self.score_column = options.pop("score_column", None)
         # self.default_sort = options.pop("default_sort", "")
         # self.sort_column = options.pop("sort_column", None)
@@ -63,17 +58,12 @@ class SuricateFDW(ForeignDataWrapper):
         else:
             auth = None
 
-
         host = options.pop("host", "localhost")
         port = int(options.pop("port", "9200"))
         timeout = int(options.pop("timeout", "10"))
-        self.auth = auth
-        self.timeout=timeout
-        self.host = host
-        self.port = port
-        # self.client = Elasticsearch(
-        #     [{"host": host, "port": port}], http_auth=auth, timeout=timeout, **options
-        # )
+        self.client = Elasticsearch(
+            [{"host": host, "port": port}], http_auth=auth, timeout=timeout, **options
+        )
         self.scroll_id = None
 
 
@@ -82,20 +72,13 @@ class SuricateFDW(ForeignDataWrapper):
             Returns a tuple of the form (number of rows, average row width) """
 
         try:
-            e = Elasticsearch(
-            [{"host": self.host, "port": self.port}], http_auth=self.auth, timeout=self.timeout
-                    )
             query = self._get_query(quals)
-            pg_id = self._get_pg_id(quals)
-            ## log2pg("log-info: pg_id:{}".format(pg_id), logging.INFO)
-            ## log2pg("log-info: es_client:{}".format(e.ping(pretty=True, human=True)), logging.INFO)
-            time.sleep(1)
-
+            # pg_id = self._get_pg_id(quals)
             # log2pg("log-info: pg_id:{}".format(pg_id), logging.INFO)
             # log2pg("log-info: query:{}".format(query), logging.INFO)
             # log2pg("log-info: quals:{}".format(quals), logging.INFO)
             q_dict = json.loads(query.encode('utf-8'))
-            response = e.count(body=q_dict,  index=self.index)
+            response = self.client.count(body=q_dict,  index=self.index)
             return (response["count"], len(columns) * 100)
         except Exception as exception:
             log2pg(
@@ -113,28 +96,17 @@ class SuricateFDW(ForeignDataWrapper):
             query = self._get_query(quals)
             q_dict = json.loads(query.encode('utf-8'))
             pg_id = self._get_pg_id(quals)
-            e = Elasticsearch(
-            [{"host": self.host, "port": self.port}], http_auth=self.auth, timeout=self.timeout
-                    )
-            response = e.search(
+            response = self.client.search(
                 body=q_dict,
                 index=self.index,
                 size=self.size,
                 explain=self.explain
             )
-            return_dict = {
-                'pg_id':pg_id,
-                'query':query,
-                'response':json.dumps(response)
-            }
-            for c in [return_dict]:
-                yield c
-            return
-            # while True:
-            #     for result in response["hits"]["hits"]:
-            #         yield self._format_out(result, pg_id=pg_id, query=query)
-            #
-            #     return
+            while True:
+                for result in response["hits"]["hits"]:
+                    yield self._format_out(result, pg_id=pg_id, query=query)
+
+                return
         except Exception as exception:
             log2pg(
                 "SEARCH for {path} failed: {exception}".format(
@@ -160,10 +132,7 @@ class SuricateFDW(ForeignDataWrapper):
     def end_scan(self):
         """ Hook called at the end of a foreign scan. """
         if self.scroll_id:
-            e = Elasticsearch(
-            [{"host": self.host, "port": self.port}], http_auth=self.auth, timeout=self.timeout
-                    )
-            e.clear_scroll(scroll_id=self.scroll_id)
+            self.client.clear_scroll(scroll_id=self.scroll_id)
             self.scroll_id = None
 
     def _format_out(self, response, pg_id, query):
@@ -198,10 +167,7 @@ class SuricateFDW(ForeignDataWrapper):
 
     def _read_by_id(self, row_id):
         try:
-            e = Elasticsearch(
-            [{"host": self.host, "port": self.port}], http_auth=self.auth, timeout=self.timeout
-                    )
-            results = e.search(
+            results = self.client.search(
                 body={"query": {"ids": {"values": [row_id]}}}, index=self.index
             )["hits"]["hits"]
             if results:
