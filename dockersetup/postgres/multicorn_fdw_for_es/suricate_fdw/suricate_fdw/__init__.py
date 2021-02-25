@@ -35,9 +35,10 @@ class SuricateFDW(ForeignDataWrapper):
         self.score_column = options.pop("score_column", None)
         self.default_sort = options.pop("default_sort", "")
         self.sort_column = options.pop("sort_column", None)
-        self.scroll_size = int(options.pop("scroll_size", "1000"))
-        self.scroll_duration = options.pop("scroll_duration", "10m")
+        self.scroll_size = int(options.pop("scroll_size", "10"))
+        self.scroll_duration = options.pop("scroll_duration", "0nanos")
         self._rowid_column = options.pop("rowid_column", "id")
+        self.size = int(options.pop("size", "10"))
         username = options.pop("username", None)
         password = options.pop("password", None)
 
@@ -87,9 +88,11 @@ class SuricateFDW(ForeignDataWrapper):
             query = self._get_query(quals)
             if query:
                 if self.is_json_query:
-                    response = self.client.count(
-                        body=json.loads(query), **self.arguments
-                    )
+                    return (self.size, 20)
+                    pass
+                    # response = self.client.count(
+                    #     body=json.loads(query), self.index
+                    # )
                 else:
                     response = self.client.count(q=query, **self.arguments)
             else:
@@ -116,10 +119,11 @@ class SuricateFDW(ForeignDataWrapper):
             if query:
                 if self.is_json_query:
                     response = self.client.search(
-                        size=self.scroll_size,
-                        scroll=self.scroll_duration,
-                        body=json.loads(query),
-                        **self.arguments
+                        size=self.size,
+                        index=self.index,
+                        #scroll=0,
+                        body=json.loads(query)
+                        # **self.arguments
                     )
                 else:
                     response = self.client.search(
@@ -134,16 +138,21 @@ class SuricateFDW(ForeignDataWrapper):
                 )
 
             while True:
-                self.scroll_id = response["_scroll_id"]
+                if self.is_json_query:
+                    self.scroll_id = None
+                else:
+                    self.scroll_id = response["_scroll_id"]
 
                 for result in response["hits"]["hits"]:
                     yield self._convert_response_row(result, columns, query, sort)
-
-                if len(response["hits"]["hits"]) < self.scroll_size:
+                if self.is_json_query:
                     return
-                response = self.client.scroll(
-                    scroll_id=self.scroll_id, scroll=self.scroll_duration
-                )
+                else:
+                    if len(response["hits"]["hits"]) < self.scroll_size:
+                        return
+                    response = self.client.scroll(
+                        scroll_id=self.scroll_id, scroll=self.scroll_duration
+                    )
         except Exception as exception:
             log2pg(
                 "SEARCH for {path} failed: {exception}".format(

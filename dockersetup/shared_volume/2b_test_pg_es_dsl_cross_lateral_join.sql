@@ -36,13 +36,15 @@ OPTIONS
         query_column 'query',
         score_column 'score',
         default_sort 'score:desc',
-        sort_column 'score',
+        sort_column 'score:desc',
         refresh 'false',
         complete_returning 'false',
         timeout '20',
         username 'elastic',
         password 'changeme',
-        query_dsl 'true'
+        query_dsl 'true',
+        scroll_duration '0',
+        scroll_size '10'
     )
 ;
 
@@ -58,14 +60,10 @@ SELECT
                )
            )
        )::TEXT as query
-FROM elasticqueries.c_array_wo_nulls
-WHERE NOT EXISTS(
-    SELECT pg_id FROM fdwes.dsl_results WHERE fdwes.dsl_results.response IS NOT NULL AND fdwes.dsl_results.pg_id = elasticqueries.c_array_wo_nulls.row_id
-    )
-LIMIT 5;
+FROM elasticqueries.c_array_wo_nulls;
 
 
 
-SELECT t.pg_id, t.query, c.row_id as es_is, c.firstnames, c.surname
-FROM (SELECT * FROM fdwes.dsl_query ) t
+SELECT t.pg_id, t.query, c.row_id as es_is, c.firstnames, c.surname, c.score
+FROM (SELECT * FROM fdwes.dsl_query LIMIT 5) t
 CROSS JOIN LATERAL (SELECT * FROM fdwes.dsl_target b WHERE b.query =t.query LIMIT 10) c;

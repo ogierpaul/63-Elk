@@ -6,11 +6,25 @@ OPTIONS (
 );
 
 
-DROP FOREIGN TABLE IF EXISTS fdwes.dsl_target;
-CREATE FOREIGN TABLE IF NOT EXISTS fdwes.dsl_target(
-        pg_id INTEGER,
+DROP FOREIGN TABLE IF EXISTS fdwes.suricate_target;
+CREATE FOREIGN TABLE IF NOT EXISTS fdwes.suricate_target
+    (
+        row_id INT,
+        title TEXT,
+        firstnames TEXT,
+        surname TEXT,
+        name TEXT,
+        streetnumber TEXT,
+        route TEXT,
+        locality TEXT,
+        postalcodelong TEXT,
+        country TEXT,
+        formattedaddress TEXT,
+        email TEXT,
+        ni_number TEXT,
+        phone TEXT,
         query TEXT,
-        response TEXT
+        score NUMERIC
     )
 SERVER multicorn_suricate
 OPTIONS
@@ -18,44 +32,37 @@ OPTIONS
         host 'elasticsearch',
         port '9200',
         index 'pgtarget',
+        rowid_column 'row_id',
         query_column 'query',
-        response_column 'response',
-        size '10',
-        explain 'false',
+        score_column 'score',
+        default_sort 'score:desc',
+        sort_column 'score:desc',
         refresh 'false',
         complete_returning 'false',
         timeout '20',
         username 'elastic',
-        password 'changeme'
+        password 'changeme',
+        query_dsl 'true',
+        scroll_duration '0nanos',
+        scroll_size '10',
+        size '10'
     )
 ;
 
---
--- DROP MATERIALIZED VIEW IF EXISTS fdwes.dsl_query;
-CREATE MATERIALIZED VIEW fdwes.dsl_query AS
-    -- nesting the array with the different terms in its proper place
-SELECT
-       row_id AS pg_id,
-       json_build_object(
-           'query', json_build_object(
-               'bool', jsonb_build_object(
-                   'should',  jsar
-               )
-           )
-       )::TEXT as query
-FROM elasticqueries.c_array_wo_nulls
-WHERE NOT EXISTS(
-    SELECT pg_id FROM fdwes.dsl_results WHERE fdwes.dsl_results.response IS NOT NULL AND fdwes.dsl_results.pg_id = elasticqueries.c_array_wo_nulls.row_id
-    )
-LIMIT 5;
 
-
-CREATE TABLE IF NOT EXISTS fdwes.dsl_results(
+CREATE TABLE fdwes.suricate_results (
     pg_id INTEGER,
-    query TEXT,
-    response TEXT
+    es_id INTEGER,
+    score NUMERIC,
+    PRIMARY KEY (pg_id, es_id)
 );
--- SELECT * FROM fdwes.dsl_target
--- WHERE query = '{"query" : {"bool" : {"should": [{"match": {"surname": {"query": "WALLS", "fuzziness": 1}}}, {"match": {"firstnames": {"query": "Kenneth Charle", "fuzziness": 1}}}, {"match": {"route": {"query": "Squirrel Rise", "fuzziness": 1}}}, {"match": {"locality": {"query": "Marlow", "fuzziness": 1}}}, {"match": {"postalcodelong": {"query": "SL7 3PN", "fuzziness": 0}}}]}}}' AND pg_id = 1;
--- --
+
+CREATE OR REPLACE VIEW fdwes.unmatched_queries AS
+SELECT * FROM fdwes.dsl_query
+WHERE NOT EXISTS(SELECT pg_id FROM fdwes.suricate_results WHERE fdwes.suricate_results.pg_id = fdwes.dsl_query.pg_id);
+
+SELECT * FROM fdwes.unmatched_queries;
+
+
+
 

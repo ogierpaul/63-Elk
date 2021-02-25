@@ -5,6 +5,6 @@ docker stop postgres
 # docker stop elasticsearch
 docker-compose up -d
 sleep 3
-
-docker exec -it postgres psql -U myuser -d mydb -f /shared_volume/3_create_suricate_fdw.sql
-docker exec -it postgres psql -U myuser -d mydb -f /shared_volume/4_run_suricate_fdw.sql
+#
+#docker exec -it postgres psql -U myuser -d mydb -f /shared_volume/3_create_suricate_fdw.sql
+#docker exec -it postgres psql -U myuser -d mydb -f /shared_volume/4_run_suricate_fdw.sql
