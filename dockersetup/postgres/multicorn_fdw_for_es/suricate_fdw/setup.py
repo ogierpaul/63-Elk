@@ -9,7 +9,7 @@ if __name__ == "__main__":
     setup(
         name="suricate_fdw",
         packages=["suricate_fdw"],
-        version="0.1",
+        version="0.2.0",
         description="Launch search queries with JSON from ES",
         author="Paul Ogier",
         keywords=["postgres", "postgresql", "elastic", "elastic search", "fdw"],

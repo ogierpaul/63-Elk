@@ -6,8 +6,8 @@ OPTIONS (
 );
 
 
-DROP FOREIGN TABLE IF EXISTS fdwes.lucene_target;
-CREATE FOREIGN TABLE IF NOT EXISTS fdwes.lucene_target
+DROP FOREIGN TABLE IF EXISTS fdwes.dsl_target;
+CREATE FOREIGN TABLE IF NOT EXISTS fdwes.dsl_target
     (
         row_id INT,
         title TEXT,
@@ -35,27 +35,37 @@ OPTIONS
         rowid_column 'row_id',
         query_column 'query',
         score_column 'score',
---         default_sort 'score:desc',
---         sort_column 'score',
+        default_sort 'score:desc',
+        sort_column 'score',
         refresh 'false',
         complete_returning 'false',
         timeout '20',
         username 'elastic',
-        password 'changeme'
+        password 'changeme',
+        query_dsl 'true'
     )
 ;
 
-DROP MATERIALIZED VIEW IF EXISTS fdwes.lucene_query CASCADE ;
-CREATE MATERIALIZED VIEW fdwes.lucene_query AS
+DROP MATERIALIZED VIEW IF EXISTS fdwes.dsl_query CASCADE ;
+CREATE MATERIALIZED VIEW fdwes.dsl_query AS
     -- nesting the array with the different terms in its proper place
 SELECT
-       row_id as pg_id,
-       'firstnames:' || split_part(firstnames, ' ', 1) as query
-FROM source.attributes LIMIT 400;
+       row_id AS pg_id,
+       json_build_object(
+           'query', json_build_object(
+               'bool', jsonb_build_object(
+                   'should',  jsar
+               )
+           )
+       )::TEXT as query
+FROM elasticqueries.c_array_wo_nulls
+WHERE NOT EXISTS(
+    SELECT pg_id FROM fdwes.dsl_results WHERE fdwes.dsl_results.response IS NOT NULL AND fdwes.dsl_results.pg_id = elasticqueries.c_array_wo_nulls.row_id
+    )
+LIMIT 5;
 
-DROP MATERIALIZED VIEW IF EXISTS fdwes.lucene_results;
-CREATE MATERIALIZED VIEW fdwes.lucene_results
-AS
+
+
 SELECT t.pg_id, t.query, c.row_id as es_is, c.firstnames, c.surname
-FROM (SELECT * FROM fdwes.lucene_query ) t
-CROSS JOIN LATERAL (SELECT * FROM fdwes.lucene_target b WHERE b.query =t.query LIMIT 10) c;
+FROM (SELECT * FROM fdwes.dsl_query ) t
+CROSS JOIN LATERAL (SELECT * FROM fdwes.dsl_target b WHERE b.query =t.query LIMIT 10) c;

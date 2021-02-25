@@ -4,4 +4,5 @@ cd /Users/pogier/Documents/63-Elk/dockersetup
 docker stop postgres
 docker-compose up -d
 sleep 3
-docker exec -it postgres psql -U myuser -d mydb -f /shared_volume/3_create_suricate_fdw.sql
+docker exec -it postgres psql -U myuser -d mydb -f /shared_volume/2a_test_pg_es_lucene_cross_lateral_join.sql
+docker exec -it postgres psql -U myuser -d mydb -f /shared_volume/2b_test_pg_es_dsl_cross_lateral_join.sql
