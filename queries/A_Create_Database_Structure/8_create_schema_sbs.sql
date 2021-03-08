@@ -80,4 +80,32 @@ GROUP BY y_true
 ORDER BY y_true DESC;
 COMMENT ON VIEW sbs.v_geo_stats IS 'min, max, and avg distance between two points based on their match status';
 
+CREATE OR REPLACE VIEW sbs.v_firstnames_tfidf_stats AS
+SELECT * FROM (
+SELECT firstnames, AVG(firstnames_tfidf) as tfidf, COUNT(*) AS n_rows
+FROM (
+SELECT firstnames_source AS firstnames, firstnames_target, firstnames_tfidf, firstnames_levenshtein FROM elasticresults.tfidf
+INNER JOIN (SELECT puid, firstnames_levenshtein FROM sbs.levenshtein) b USING (puid)
+INNER JOIN (SELECT puid, firstnames_source, firstnames_target FROM exploration.simplesbs) d USING (puid)
+WHERE (firstnames_levenshtein=1 )
+ORDER BY firstnames_tfidf DESC) e
+GROUP BY firstnames) f
+WHERE n_rows > 100;
+COMMENT ON VIEW sbs.v_firstnames_tfidf_stats IS 'Show tf-idf scores of exact matches. Helps fine-tune the tf-idf features, and discover potential inconsistencies in the data';
+
+CREATE OR REPLACE VIEW sbs.v_locality_tfidf_stats AS
+SELECT * FROM (
+SELECT locality, AVG(locality_tfidf) as tfidf, COUNT(*) AS n_rows
+FROM (
+SELECT locality_source AS locality, locality_target, locality_tfidf, locality_levenshtein FROM elasticresults.tfidf
+INNER JOIN (SELECT puid, locality_levenshtein FROM sbs.levenshtein) b USING (puid)
+INNER JOIN (SELECT puid, locality_source, locality_target FROM exploration.simplesbs) d USING (puid)
+WHERE (locality_levenshtein=1 )
+ORDER BY locality_tfidf DESC) e
+GROUP BY locality) f
+WHERE n_rows > 100;
+COMMENT ON VIEW sbs.v_locality_tfidf_stats IS 'Show tf-idf scores of exact matches. Helps fine-tune the tf-idf features, and discover potential inconsistencies in the data';
+
+
+
 

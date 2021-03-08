@@ -14,3 +14,5 @@ CREATE SCHEMA IF NOT EXISTS mlm;
 COMMENT ON SCHEMA target IS 'Machine-Learning Model data: Y-pred, views';
 CREATE SCHEMA IF NOT EXISTS talend;
 COMMENT ON SCHEMA talend IS 'Connection to Talend tools: Data Stewardship, tMatchGroup...';
+CREATE SCHEMA IF NOT EXISTS reporting;
+COMMENT ON SCHEMA reporting IS 'Create views used for dashboarding and reporting';

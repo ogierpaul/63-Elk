@@ -35,9 +35,11 @@ class ElasticsearchFDW(ForeignDataWrapper):
         self.score_column = options.pop("score_column", None)
         self.default_sort = options.pop("default_sort", "")
         self.sort_column = options.pop("sort_column", None)
-        self.scroll_size = int(options.pop("scroll_size", "1000"))
-        self.scroll_duration = options.pop("scroll_duration", "10m")
+        self.scroll_size = int(options.pop("scroll_size", "10"))
+        self.scroll_duration = options.pop("scroll_duration", "0nanos")
         self._rowid_column = options.pop("rowid_column", "id")
+        self.explain = (options.pop("explain", "false").lower() == "true")
+        self.explain_column = options.pop("explain_column", None)
         username = options.pop("username", None)
         password = options.pop("password", None)
 
@@ -87,9 +89,13 @@ class ElasticsearchFDW(ForeignDataWrapper):
             query = self._get_query(quals)
             if query:
                 if self.is_json_query:
-                    response = self.client.count(
-                        body=json.loads(query), **self.arguments
-                    )
+                    #If the query has a fixed size then do it
+                    if self.size:
+                        return (self.size, 100)
+                    else:
+                        response = self.client.count(
+                            body=json.loads(query), **self.arguments
+                        )
                 else:
                     response = self.client.count(q=query, **self.arguments)
             else:
@@ -116,9 +122,10 @@ class ElasticsearchFDW(ForeignDataWrapper):
             if query:
                 if self.is_json_query:
                     response = self.client.search(
-                        size=self.scroll_size,
+                        size=self.size,
                         scroll=self.scroll_duration,
                         body=json.loads(query),
+                        explain = self.explain,
                         **self.arguments
                     )
                 else:
@@ -134,16 +141,22 @@ class ElasticsearchFDW(ForeignDataWrapper):
                 )
 
             while True:
-                self.scroll_id = response["_scroll_id"]
-
-                for result in response["hits"]["hits"]:
-                    yield self._convert_response_row(result, columns, query, sort)
-
-                if len(response["hits"]["hits"]) < self.scroll_size:
+                if self.is_json_query:
+                    self.scroll_id = None
+                    for result in response['hits']['hits']:
+                        yield self._convert_response_row(result, columns, query, sort)
                     return
-                response = self.client.scroll(
-                    scroll_id=self.scroll_id, scroll=self.scroll_duration
-                )
+                else:
+                    self.scroll_id = response["_scroll_id"]
+
+                    for result in response["hits"]["hits"]:
+                        yield self._convert_response_row(result, columns, query, sort)
+
+                    if len(response["hits"]["hits"]) < self.scroll_size:
+                        return
+                    response = self.client.scroll(
+                        scroll_id=self.scroll_id, scroll=self.scroll_duration
+                    )
         except Exception as exception:
             log2pg(
                 "SEARCH for {path} failed: {exception}".format(
@@ -276,13 +289,17 @@ class ElasticsearchFDW(ForeignDataWrapper):
             if column in row_data["_source"]
             or column == self.rowid_column
             or column == self.score_column
+            or column == self.explain_column
         }
+
         if query:
             return_dict[self.query_column] = query
         return_dict[self.sort_column] = sort
         return return_dict
 
     def _convert_response_column(self, column, row_data):
+        if self.explain and column == self.explain_column:
+            return json.dump(row_data['_explanation'])
         if column == self.rowid_column:
             return row_data["_id"]
         if column == self.score_column:

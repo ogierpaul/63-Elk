@@ -12,3 +12,6 @@ ON CONFLICT (puid) DO UPDATE
 SET y_proba = excluded.y_proba,
     update_ts = current_timestamp
 ;
+
+SELECT SUM(y_true)
+FROM exploration.ytrue;

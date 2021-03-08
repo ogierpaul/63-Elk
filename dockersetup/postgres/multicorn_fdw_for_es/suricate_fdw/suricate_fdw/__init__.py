@@ -36,9 +36,11 @@ class SuricateFDW(ForeignDataWrapper):
         self.default_sort = options.pop("default_sort", "")
         self.sort_column = options.pop("sort_column", None)
         self.scroll_size = int(options.pop("scroll_size", "10"))
+        self.size = int(options.pop("size", "10"))
         self.scroll_duration = options.pop("scroll_duration", "0nanos")
         self._rowid_column = options.pop("rowid_column", "id")
-        self.size = int(options.pop("size", "10"))
+        self.explain = (options.pop("explain", "false").lower() == "true")
+        self.explain_column = options.pop("explain_column", None)
         username = options.pop("username", None)
         password = options.pop("password", None)
 
@@ -88,11 +90,13 @@ class SuricateFDW(ForeignDataWrapper):
             query = self._get_query(quals)
             if query:
                 if self.is_json_query:
-                    return (self.size, 20)
-                    pass
-                    # response = self.client.count(
-                    #     body=json.loads(query), self.index
-                    # )
+                    #If the query has a fixed maximal size then take it
+                    if self.size:
+                        return (self.size, 100)
+                    else:
+                        response = self.client.count(
+                            body=json.loads(query), **self.arguments
+                        )
                 else:
                     response = self.client.count(q=query, **self.arguments)
             else:
@@ -120,10 +124,10 @@ class SuricateFDW(ForeignDataWrapper):
                 if self.is_json_query:
                     response = self.client.search(
                         size=self.size,
-                        index=self.index,
-                        #scroll=0,
-                        body=json.loads(query)
-                        # **self.arguments
+                        ## scroll=self.scroll_duration,
+                        body=json.loads(query),
+                        explain = self.explain,
+                        **self.arguments
                     )
                 else:
                     response = self.client.search(
@@ -140,14 +144,15 @@ class SuricateFDW(ForeignDataWrapper):
             while True:
                 if self.is_json_query:
                     self.scroll_id = None
+                    for result in response['hits']['hits']:
+                        yield self._convert_response_row(result, columns, query, sort)
+                    return
                 else:
                     self.scroll_id = response["_scroll_id"]
 
-                for result in response["hits"]["hits"]:
-                    yield self._convert_response_row(result, columns, query, sort)
-                if self.is_json_query:
-                    return
-                else:
+                    for result in response["hits"]["hits"]:
+                        yield self._convert_response_row(result, columns, query, sort)
+
                     if len(response["hits"]["hits"]) < self.scroll_size:
                         return
                     response = self.client.scroll(
@@ -285,13 +290,17 @@ class SuricateFDW(ForeignDataWrapper):
             if column in row_data["_source"]
             or column == self.rowid_column
             or column == self.score_column
+            or column == self.explain_column
         }
+
         if query:
             return_dict[self.query_column] = query
         return_dict[self.sort_column] = sort
         return return_dict
 
     def _convert_response_column(self, column, row_data):
+        if self.explain and column == self.explain_column:
+            return json.dumps(row_data['_explanation'])
         if column == self.rowid_column:
             return row_data["_id"]
         if column == self.score_column:

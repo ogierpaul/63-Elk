@@ -1,13 +1,5 @@
-DROP SERVER IF EXISTS multicorn_suricate CASCADE ;
-
-CREATE SERVER IF NOT EXISTS  multicorn_suricate FOREIGN DATA WRAPPER multicorn
-OPTIONS (
-  wrapper 'suricate_fdw.SuricateFDW'
-);
-
-
-DROP FOREIGN TABLE IF EXISTS fdwes.suricate_target;
-CREATE FOREIGN TABLE IF NOT EXISTS fdwes.suricate_target
+DROP FOREIGN TABLE IF EXISTS fdwes.dsl_target;
+CREATE FOREIGN TABLE IF NOT EXISTS fdwes.dsl_target
     (
         row_id INT,
         title TEXT,
@@ -43,26 +35,13 @@ OPTIONS
         username 'elastic',
         password 'changeme',
         query_dsl 'true',
-        scroll_duration '0nanos',
-        scroll_size '10',
         size '10'
     )
 ;
 
 
-CREATE TABLE fdwes.suricate_results (
-    pg_id INTEGER,
-    es_id INTEGER,
-    score NUMERIC,
-    PRIMARY KEY (pg_id, es_id)
-);
-
-CREATE OR REPLACE VIEW fdwes.unmatched_queries AS
-SELECT * FROM fdwes.dsl_query
-WHERE NOT EXISTS(SELECT pg_id FROM fdwes.suricate_results WHERE fdwes.suricate_results.pg_id = fdwes.dsl_query.pg_id);
-
-SELECT * FROM fdwes.unmatched_queries;
-
-
-
-
+INSERT INTO fdwes.es_results
+SELECT t.pg_id,  c.row_id as es_id,  c.score
+FROM (SELECT * FROM fdwes.unmatched_dsl LIMIT 3) t
+CROSS JOIN LATERAL (SELECT * FROM fdwes.dsl_target b WHERE b.query =t.query LIMIT 10) c
+ON CONFLICT(pg_id, es_id) DO NOTHING ;

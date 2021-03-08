@@ -16,7 +16,7 @@ AS
     SELECT * FROM mlm.tfidf
     FULL OUTER JOIN sbs.levenshtein USING(puid)
     FULL OUTER JOIN sbs.trg_similarity USING(puid)
-    FULL OUTER JOIN sbs.geo_distance USING (puid)
+    FULL OUTER JOIN sbs.geo_score USING (puid)
     FULL OUTER JOIN sbs.id_exact USING (puid);
 COMMENT ON MATERIALIZED VIEW mlm.scores IS 'View on all scores from sbs schema';
 
@@ -36,7 +36,7 @@ COMMENT ON TABLE mlm.yproba IS 'Table containing the  probability of a match bet
 
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS mlm.ydecision AS
-    SELECT
+SELECT
 puid,
 CASE
     WHEN
@@ -45,7 +45,8 @@ CASE
         y_proba >= 0.10 AND y_proba < 0.85 THEN 'TDS'
     ELSE
         'Match'
-    END AS y_decision
+    END AS y_decision,
+sqrt((y_proba-0.5)*(y_proba-0.5))/0.5 as confidence
 FROM mlm.yproba;
 COMMENT ON MATERIALIZED VIEW mlm.ydecision IS 'View on the decision (TDS, No-Match, Match) taken for each possible pair based on thresholds.';
 

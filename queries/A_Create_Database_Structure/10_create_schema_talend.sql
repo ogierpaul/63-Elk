@@ -12,5 +12,5 @@ UNION ALL
 SELECT * FROM target)
 SELECT * FROM union_pairs
 LEFT JOIN target.attributes USING (row_id);
-COMMENT ON VIEW talend.v_puid_blocking IS 'Attributes data (firstnames, surnames... ) with the puid as blcking key for input to tMatchGroup';
+COMMENT ON VIEW talend.v_puid_blocking IS 'Attributes data (firstnames, surnames... ) with the puid as blocking key for input to tMatchGroup';
 
